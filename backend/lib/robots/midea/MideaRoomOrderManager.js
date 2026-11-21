@@ -20,8 +20,10 @@ const stateAttrs = require("../../entities/state/attributes");
  * `cleanSeq` is written with 0x2B (record version 2), which overwrites every field of the room, so each record carries
  * the room's current values from room_cfg for everything else. The robot saves room_cfg itself; nothing here writes it.
  *
- * Because the robot-side decoding of those fields is not fully known, every write is read back from room_cfg.
- * If anything doesn't match, the feature switches itself off until that is looked into.
+ * Every write is read back from room_cfg. The robot stores the records as sent, but saves room_cfg for other reasons
+ * too (notably when a job ends), so the readback waits until the values show up and sends once more if they don't.
+ * If they still don't match, writing is switched off until Valetudo is restarted, so that a robot that keeps refusing
+ * isn't sent the same write over and over.
  */
 class MideaRoomOrderManager {
     /**
@@ -36,6 +38,7 @@ class MideaRoomOrderManager {
         this.state = {disabled: null, toReset: []};
         this.awaitingJobStart = false;
         this.awaitingJobStartTimeout = undefined;
+        this.resetTimeout = undefined;
         this.resetInProgress = false;
 
         if (this.enabled) {
@@ -44,6 +47,12 @@ class MideaRoomOrderManager {
                 key: STORE_KEY
             });
             this.state = Object.assign(this.state, this.store.get());
+
+            // Older versions kept the feature switched off across restarts
+            if (this.state.disabled) {
+                Logger.info(`Room order: switching back on after a restart (was off: ${this.state.disabled})`);
+                this.updateState({disabled: null});
+            }
 
             if (this.state.toReset.length > 0) {
                 Logger.debug(`Room order: rooms [${this.state.toReset.join(", ")}] still need their cleanSeq reset`);
@@ -178,15 +187,28 @@ class MideaRoomOrderManager {
         if (!atRest) {
             this.awaitingJobStart = false;
             clearTimeout(this.awaitingJobStartTimeout);
+            clearTimeout(this.resetTimeout);
+            this.resetTimeout = undefined;
 
             return;
         }
 
         // A job that can still be resumed isn't over yet
-        if (!this.awaitingJobStart && status.flag !== stateAttrs.StatusStateAttribute.FLAG.RESUMABLE) {
-            this.reset().catch(() => {
-                /* logged in reset() */
-            });
+        if (this.awaitingJobStart || status.flag === stateAttrs.StatusStateAttribute.FLAG.RESUMABLE) {
+            clearTimeout(this.resetTimeout);
+            this.resetTimeout = undefined;
+
+            return;
+        }
+
+        // The robot saves its maps and room_cfg as a job ends, so leave it a moment before writing
+        if (this.resetTimeout === undefined) {
+            this.resetTimeout = setTimeout(() => {
+                this.resetTimeout = undefined;
+                this.reset().catch(() => {
+                    /* logged in reset() */
+                });
+            }, RESET_DELAY);
         }
     }
 
@@ -263,43 +285,68 @@ class MideaRoomOrderManager {
      * @returns {Promise<void>}
      */
     async writeAndVerify(wanted) {
-        const before = fs.statSync(ROOM_CFG_PATH).mtimeMs;
+        let mismatches = [];
 
-        await this.sendRoomInfo(wanted);
+        for (let attempt = 1; attempt <= WRITE_ATTEMPTS; attempt++) {
+            await this.sendRoomInfo(wanted);
 
-        const deadline = Date.now() + SAVE_TIMEOUT;
-        while (Date.now() < deadline && fs.statSync(ROOM_CFG_PATH).mtimeMs === before) {
-            await new Promise(resolve => {
-                setTimeout(resolve, 250);
-            });
+            // room_cfg can also be saved for other reasons in the meantime, so wait for the values, not for the file
+            const deadline = Date.now() + SAVE_TIMEOUT;
+            do {
+                await new Promise(resolve => {
+                    setTimeout(resolve, 250);
+                });
+                try {
+                    mismatches = this.findMismatches(wanted, this.readRooms());
+                } catch (e) {
+                    // Possibly read while the robot was writing it
+                    mismatches = [e.message];
+                }
+            } while (mismatches.length > 0 && Date.now() < deadline);
+
+            if (mismatches.length === 0) {
+                return;
+            }
+
+            Logger.warn(`Room order: attempt ${attempt}: the robot didn't store what was sent: ${mismatches.join("; ")}`);
         }
 
         const after = this.readRooms();
         const otherFile = this.readRooms(ROOM_CFG_OTHER_PATH);
+        for (const room of wanted) {
+            Logger.debug(
+                `Room order: room ${room.id} after the write: ${describe(after[room.id])}` +
+                ` (${path.basename(ROOM_CFG_OTHER_PATH)}: ${describe(otherFile[room.id])})`
+            );
+        }
+
+        this.state = Object.assign({}, this.state, {disabled: `0x2B readback mismatch: ${mismatches.join("; ")}`});
+
+        Logger.error(
+            `Room order: the robot didn't store what was sent. Switching the feature off until Valetudo is restarted. ${mismatches.join("; ")}`
+        );
+
+        throw new Error("The robot didn't store the room settings as sent. Writing them is switched off until Valetudo is restarted, see the log.");
+    }
+
+    /**
+     * @private
+     * @param {Array<object>} wanted room_cfg room entries
+     * @param {{[roomId: string]: object}} stored
+     * @returns {Array<string>}
+     */
+    findMismatches(wanted, stored) {
         const mismatches = [];
 
         for (const room of wanted) {
-            const stored = after[room.id];
-
-            Logger.debug(
-                `Room order: room ${room.id} after the write: ${describe(stored)}` +
-                ` (${path.basename(ROOM_CFG_OTHER_PATH)}: ${describe(otherFile[room.id])})`
-            );
-
             for (const field of RECORD_FIELDS) {
-                if (stored?.[field] !== room[field]) {
-                    mismatches.push(`room ${room.id} ${field}: wanted ${room[field]}, got ${stored?.[field]}`);
+                if (stored[room.id]?.[field] !== room[field]) {
+                    mismatches.push(`room ${room.id} ${field}: wanted ${room[field]}, got ${stored[room.id]?.[field]}`);
                 }
             }
         }
 
-        if (mismatches.length > 0) {
-            this.updateState({disabled: `0x2B readback mismatch: ${mismatches.join("; ")}`});
-
-            Logger.error(`Room order: the robot didn't store what was sent. Switching the feature off. ${mismatches.join("; ")}`);
-
-            throw new Error("The robot didn't store the room order as sent. Room order is now switched off, see the log.");
-        }
+        return mismatches;
     }
 
     /**
@@ -384,7 +431,8 @@ class MideaRoomOrderManager {
      */
     updateState(changes) {
         this.state = Object.assign({}, this.state, changes);
-        this.store.set(this.state);
+        // Being switched off lasts until a restart only
+        this.store.set(Object.assign({}, this.state, {disabled: null}));
     }
 }
 
@@ -440,7 +488,9 @@ const ROUTE_TYPE_TO_WIRE = Object.freeze({
 });
 const RECORD_FIELDS = ["cleanCount", "vacuum_mop_mode", "fanSpeed", "infinite_water_speed", "cleanSeq", "fluidType", "route_type"];
 const RECORD_LENGTH = 10;
-const SAVE_TIMEOUT = 5000;
+const SAVE_TIMEOUT = 10 * 1000;
+const WRITE_ATTEMPTS = 2;
+const RESET_DELAY = 30 * 1000;
 const JOB_START_TIMEOUT = 2 * 60 * 1000;
 const STORE_KEY = "roomOrder";
 // Same file MideaMapHacksProvider reads the room names from
