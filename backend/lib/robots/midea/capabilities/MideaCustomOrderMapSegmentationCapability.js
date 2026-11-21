@@ -1,3 +1,4 @@
+const Logger = require("../../../Logger");
 const MideaMapSegmentationCapabilityV2 = require("./MideaMapSegmentationCapabilityV2");
 const MideaRoomOrderManager = require("../MideaRoomOrderManager");
 
@@ -34,6 +35,33 @@ class MideaCustomOrderMapSegmentationCapability extends MideaMapSegmentationCapa
     }
 
     /**
+     * In the personalized mode, the robot takes the number of passes from the start command, not from its
+     * per-room settings. Send the stored count, so that the room settings apply as a whole.
+     *
+     * @protected
+     * @param {import("../../../entities/core/ValetudoMapSegment")} segment
+     * @param {number} operationMode
+     * @param {object} [options]
+     * @param {number} [options.iterations]
+     * @returns {number}
+     */
+    getSegmentIterations(segment, operationMode, options) {
+        if (operationMode === PERSONALIZED_OPERATION_MODE) {
+            try {
+                const cleanCount = this.roomOrderManager.readRooms()[segment.id]?.cleanCount;
+
+                if (Number.isInteger(cleanCount) && cleanCount >= 1 && cleanCount <= 3) {
+                    return cleanCount;
+                }
+            } catch (e) {
+                Logger.warn("Could not read the room settings for the number of passes", e);
+            }
+        }
+
+        return super.getSegmentIterations(segment, operationMode, options);
+    }
+
+    /**
      * @returns {import("../../../core/capabilities/MapSegmentationCapability").MapSegmentationCapabilityProperties}
      */
     getProperties() {
@@ -42,5 +70,7 @@ class MideaCustomOrderMapSegmentationCapability extends MideaMapSegmentationCapa
         });
     }
 }
+
+const PERSONALIZED_OPERATION_MODE = 6;
 
 module.exports = MideaCustomOrderMapSegmentationCapability;
