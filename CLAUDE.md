@@ -12,6 +12,8 @@ Eureka J15 Pro Ultra and pushes through `https://github.com/LuccoJ/Euclido`.
 - Keep documentation changes in their own commits, separate from the code.
 - Remind maintainer to merge PRs without squashing when they have several meaningful commits, so that fixes stay separate, especially ones that could be picked up by other projects individually.
 - Bring upstream changes in with a merge, never a rebase of `master`.
+- When merging upstream, leave out jokes, easter eggs, in-jokes and similar humorous texts (for example joke
+  hints on loading screens). Euclido's interface stays plain and factual.
 
 ## Commits and code
 
