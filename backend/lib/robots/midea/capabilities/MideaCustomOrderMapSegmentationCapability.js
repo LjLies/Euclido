@@ -36,7 +36,8 @@ class MideaCustomOrderMapSegmentationCapability extends MideaMapSegmentationCapa
 
     /**
      * In the personalized mode, the robot takes the number of passes from the start command, not from its
-     * per-room settings. Send the stored count, so that the room settings apply as a whole.
+     * per-room settings. Send the larger of the stored count and the requested one, so that each room keeps its
+     * own count and a job can still ask for more passes everywhere.
      *
      * @protected
      * @param {import("../../../entities/core/ValetudoMapSegment")} segment
@@ -46,19 +47,21 @@ class MideaCustomOrderMapSegmentationCapability extends MideaMapSegmentationCapa
      * @returns {number}
      */
     getSegmentIterations(segment, operationMode, options) {
+        const requested = super.getSegmentIterations(segment, operationMode, options);
+
         if (operationMode === PERSONALIZED_OPERATION_MODE) {
             try {
                 const cleanCount = this.roomOrderManager.readRooms()[segment.id]?.cleanCount;
 
                 if (Number.isInteger(cleanCount) && cleanCount >= 1 && cleanCount <= 3) {
-                    return cleanCount;
+                    return Math.max(cleanCount, requested);
                 }
             } catch (e) {
                 Logger.warn("Could not read the room settings for the number of passes", e);
             }
         }
 
-        return super.getSegmentIterations(segment, operationMode, options);
+        return requested;
     }
 
     /**
