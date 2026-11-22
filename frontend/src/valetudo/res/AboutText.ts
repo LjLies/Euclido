@@ -1,7 +1,7 @@
 export const AboutText = `
 Euclido is a fork of <a href="https://github.com/Hypfer/Valetudo" rel="noopener" target="_blank">Valetudo</a>,
 with additions for Eureka (Midea) robots, maintained at
-<a href="https://github.com/LuccoJ/Euclido" rel="noopener" target="_blank">LuccoJ/Euclido</a>.
+<a href="https://github.com/LjLies/Euclido" rel="noopener" target="_blank">LjLies/Euclido</a>.
 
 Almost all of it is Valetudo, which is made, managed and maintained by
 <a href="https://hypfer.de" rel="noopener" target="_blank">Sören Beye</a>, with contributions by
@@ -15,5 +15,5 @@ We're all standing on the shoulders of giants. (<a href="https://xkcd.com/2347/"
 
 ### License
 
-Euclido, like Valetudo, is licensed under <a href="https://github.com/LuccoJ/Euclido/blob/master/LICENSE" rel="noopener" target="_blank">the Apache-2.0 license</a>.
+Euclido, like Valetudo, is licensed under <a href="https://github.com/LjLies/Euclido/blob/master/LICENSE" rel="noopener" target="_blank">the Apache-2.0 license</a>.
 `;

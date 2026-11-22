@@ -1,7 +1,7 @@
 # Notes for Claude Code
 
 Euclido is a fork of Valetudo, mainly for Eureka (Midea) J15 robots. The maintainer tests every change on their
-Eureka J15 Pro Ultra and pushes through `https://github.com/LuccoJ/Euclido`.
+Eureka J15 Pro Ultra and pushes through `https://github.com/LjLies/Euclido`.
 
 ## Pull requests
 

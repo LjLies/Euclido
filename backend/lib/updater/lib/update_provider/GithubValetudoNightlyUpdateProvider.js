@@ -89,8 +89,8 @@ class GithubValetudoNightlyUpdateProvider extends ValetudoUpdateProvider {
 
 GithubValetudoNightlyUpdateProvider.TYPE = "github_nightly";
 
-GithubValetudoNightlyUpdateProvider.REPO_URL = "https://api.github.com/repos/LuccoJ/Euclido/branches/nightly-builds";
-GithubValetudoNightlyUpdateProvider.ASSET_BASE_URL = "https://raw.githubusercontent.com/LuccoJ/Euclido/nightly-builds/";
+GithubValetudoNightlyUpdateProvider.REPO_URL = "https://api.github.com/repos/LjLies/Euclido/branches/nightly-builds";
+GithubValetudoNightlyUpdateProvider.ASSET_BASE_URL = "https://raw.githubusercontent.com/LjLies/Euclido/nightly-builds/";
 GithubValetudoNightlyUpdateProvider.MANIFEST_NAME = "valetudo_release_manifest.json";
 
 GithubValetudoNightlyUpdateProvider.BINARY_NAMES = {

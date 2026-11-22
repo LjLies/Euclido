@@ -14,7 +14,7 @@
       'nightly_build':
         {
           'runs-on': 'ubuntu-latest',
-          'if': "github.repository_owner == 'LuccoJ'",
+          'if': "github.repository_owner == 'LjLies'",
           'permissions': { 'contents': 'write' },
           'steps':
             [
