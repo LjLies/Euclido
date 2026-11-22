@@ -526,7 +526,7 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
                     </ListItemButton>
                     <ListItemButton
                         component="a"
-                        href="https://github.com/LuccoJ/Euclido"
+                        href="https://github.com/LjLies/Euclido"
                         target="_blank"
                         rel="noopener"
                         onClick={(e) => e.stopPropagation()}
@@ -534,7 +534,7 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
                         <ListItemIcon>
                             <GithubIcon/>
                         </ListItemIcon>
-                        <ListItemText primary="LuccoJ/Euclido"/>
+                        <ListItemText primary="LjLies/Euclido"/>
                     </ListItemButton>
                     <ListItemButton
                         component="a"
